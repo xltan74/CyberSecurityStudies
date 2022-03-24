@@ -1,0 +1,38 @@
+---
+- name: Config VMs as metricbeat
+  hosts: webservers
+  become: true
+  tasks:
+    - name: Download and install metricbeat to the VM
+      apt:
+        update_cache: yes
+        deb: "https://artifacts.elastic.co/downloads/beats/metricbeat/metricbeat-7.6.1-amd64.deb"
+        state: present
+
+    - name: Update setup.kibana in /etc/metricbeat/metricbeat.yml
+      replace:
+        path: /etc/metricbeat/metricbeat.yml
+        regexp: '(\s+)#host: "localhost:5601"(\s+.*)?$'
+        replace: '\1host: "10.2.0.4:5601"\2'
+        backup: yes
+
+    - name: Update output.elasticsearch in /etc/metricbeat/metricbeat.yml
+      replace:
+        path: /etc/metricbeat/metricbeat.yml
+        regexp: '(\s+)hosts: \["localhost:9200"\](\s+.*)?$'
+        replace: '\1hosts: ["10.2.0.4:9200"]\2'
+        backup: yes
+
+    - name: Enable the metricbeat docker module
+      command: metricbeat modules enable docker
+      args:
+        creates: /etc/metricbeat/modules.d/docker.yml
+
+    - name: Setup the metricbeat kibana dashboards
+      command: metricbeat setup
+
+    - name: Enable metricbeat on boot and start it (using systemd)
+      systemd:
+          name: metricbeat
+          state: started
+          enabled: yes

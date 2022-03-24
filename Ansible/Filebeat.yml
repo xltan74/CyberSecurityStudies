@@ -1,0 +1,39 @@
+---
+- name: Config Web VM filebeat
+  hosts: webservers
+  become: true
+  tasks:
+
+    - name: Download and install filebeat to VM
+      apt:
+        update_cache: yes
+        deb: "https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-7.6.1-amd64.deb"
+        state: present
+
+    - name: Update setup.kibana in /etc/filebeat/filebeat.yml
+      replace:
+        path: /etc/filebeat/filebeat.yml
+        regexp: '(\s+)#host: "localhost:5601"(\s+.*)?$'
+        replace: '\1host: "10.2.0.4:5601"\2'
+        backup: yes
+
+    - name: Update output.elasticsearch in /etc/filebeat/filebeat.yml
+      replace:
+        path: /etc/filebeat/filebeat.yml
+        regexp: '(\s+)hosts: \["localhost:9200"\](\s+.*)?$'
+        replace: '\1hosts: ["10.2.0.4:9200"]\2'
+        backup: yes
+
+    - name: Enable the filebeat system module
+      command: filebeat modules enable system
+      args:
+        creates: /etc/filebeat/modules.d/system.yml
+
+    - name: Setup the filebeat kibana dashboards
+      command: filebeat setup
+
+    - name: Enable filebeat on boot and start it (using systemd)
+      systemd:
+          name: filebeat
+          state: started
+          enabled: yes
